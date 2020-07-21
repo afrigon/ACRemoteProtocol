@@ -1,35 +1,28 @@
 use bit_vec::BitVec;
 
 use crate::common::*;
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum EliosFanSpeed {
-    Off = 0b000,
-    Automatic = 0b100,
-    Low = 0b001,
-    Medium = 0b010,
-    High = 0b011,
-}
-
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum EliosMode {
-    Cold = 0b000,
-    Dry = 0b001,
-    Automatic = 0b010,
-    Heat = 0b011,
-    Fan = 0b100,
-}
+use crate::elios::{EliosFanSpeed as FanSpeed, EliosMode as Mode};
 
 const MIN_CELCIUS: u8 = 17;
 const MAX_CELCIUS: u8 = 30;
 const MIN_FAHRENHEIT: u8 = 62;
 const MAX_FAHRENHEIT: u8 = 86;
+
 const FAN_TEMPERATURE: u8 = 0b11110;
+
+pub const ELIOS_IR: InfraredProtocol = InfraredProtocol {
+    leading_pulse: 4500,
+    leading_gap: 4500,
+    one_pulse: 500,
+    one_gap: 1500,
+    zero_pulse: 500,
+    zero_gap: 500,
+};
 
 #[derive(Debug, Copy, Clone)]
 pub struct EliosState {
-    fan_speed: EliosFanSpeed,
-    mode: EliosMode,
+    fan_speed: FanSpeed,
+    mode: Mode,
     temperature: Temperature,
     powered: bool,
     sleep: bool,
@@ -37,13 +30,13 @@ pub struct EliosState {
 
 impl EliosState {
     pub fn new(
-        fan_speed: Option<EliosFanSpeed>,
-        mode: EliosMode,
+        fan_speed: Option<FanSpeed>,
+        mode: Mode,
         temperature: Option<Temperature>,
         powered: bool,
         sleep: bool,
     ) -> Option<Self> {
-        let temperature = if mode == EliosMode::Fan {
+        let temperature = if mode == Mode::Fan {
             if temperature.is_some() {
                 return None;
             }
@@ -65,18 +58,17 @@ impl EliosState {
         };
 
         let fan = match mode {
-            EliosMode::Automatic | EliosMode::Dry => {
-                if fan_speed.is_some() && fan_speed.unwrap() != EliosFanSpeed::Off {
+            Mode::Automatic | Mode::Dry => {
+                if fan_speed.is_some() && fan_speed.unwrap() != FanSpeed::Off {
                     return None;
                 }
 
-                EliosFanSpeed::Off
+                FanSpeed::Off
             }
-            _ => fan_speed.unwrap_or(EliosFanSpeed::Automatic),
+            _ => fan_speed.unwrap_or(FanSpeed::Automatic),
         };
 
-        let sleep = sleep
-            && (mode == EliosMode::Cold || mode == EliosMode::Heat || mode == EliosMode::Automatic);
+        let sleep = sleep && (mode == Mode::Cold || mode == Mode::Heat || mode == Mode::Automatic);
 
         Some(Self {
             fan_speed: fan,
@@ -161,8 +153,8 @@ mod tests {
     fn given_cold_auto_17c_on_state_then_value_is_properly_computed() {
         assert_eq!(
             EliosState::new(
-                Some(EliosFanSpeed::Automatic),
-                EliosMode::Cold,
+                Some(FanSpeed::Automatic),
+                Mode::Cold,
                 Some(Temperature::Celcius(17)),
                 true,
                 false,
@@ -177,8 +169,8 @@ mod tests {
     fn given_cold_auto_18c_on_state_then_value_is_properly_computed() {
         assert_eq!(
             EliosState::new(
-                Some(EliosFanSpeed::Automatic),
-                EliosMode::Cold,
+                Some(FanSpeed::Automatic),
+                Mode::Cold,
                 Some(Temperature::Celcius(18)),
                 true,
                 false,
@@ -193,8 +185,8 @@ mod tests {
     fn given_cold_auto_62f_on_state_then_value_is_properly_computed() {
         assert_eq!(
             EliosState::new(
-                Some(EliosFanSpeed::Automatic),
-                EliosMode::Cold,
+                Some(FanSpeed::Automatic),
+                Mode::Cold,
                 Some(Temperature::Fahrenheit(62)),
                 true,
                 false,
@@ -209,8 +201,8 @@ mod tests {
     fn given_cold_auto_17c_off_state_then_value_is_properly_computed() {
         assert_eq!(
             EliosState::new(
-                Some(EliosFanSpeed::Automatic),
-                EliosMode::Cold,
+                Some(FanSpeed::Automatic),
+                Mode::Cold,
                 Some(Temperature::Celcius(17)),
                 false,
                 false,
@@ -225,8 +217,8 @@ mod tests {
     fn given_cold_auto_17c_on_sleeping_state_then_value_is_properly_computed() {
         assert_eq!(
             EliosState::new(
-                Some(EliosFanSpeed::Automatic),
-                EliosMode::Cold,
+                Some(FanSpeed::Automatic),
+                Mode::Cold,
                 Some(Temperature::Celcius(17)),
                 true,
                 true,
@@ -241,8 +233,8 @@ mod tests {
     fn given_heat_auto_30c_on_state_then_value_is_properly_computed() {
         assert_eq!(
             EliosState::new(
-                Some(EliosFanSpeed::Automatic),
-                EliosMode::Heat,
+                Some(FanSpeed::Automatic),
+                Mode::Heat,
                 Some(Temperature::Celcius(30)),
                 true,
                 false,
@@ -256,15 +248,9 @@ mod tests {
     #[test]
     fn given_fan_auto_on_state_then_value_is_properly_computed() {
         assert_eq!(
-            EliosState::new(
-                Some(EliosFanSpeed::Automatic),
-                EliosMode::Fan,
-                None,
-                true,
-                false
-            )
-            .unwrap()
-            .as_value(),
+            EliosState::new(Some(FanSpeed::Automatic), Mode::Fan, None, true, false)
+                .unwrap()
+                .as_value(),
             0b10100001_10100100_01011110_11111111_11111111_01111011
         );
     }
@@ -272,15 +258,9 @@ mod tests {
     #[test]
     fn given_dry_30c_on_state_then_value_is_properly_computed() {
         assert_eq!(
-            EliosState::new(
-                None,
-                EliosMode::Dry,
-                Some(Temperature::Celcius(30)),
-                true,
-                false,
-            )
-            .unwrap()
-            .as_value(),
+            EliosState::new(None, Mode::Dry, Some(Temperature::Celcius(30)), true, false,)
+                .unwrap()
+                .as_value(),
             0b10100001_10000001_01001101_11111111_11111111_01010010
         );
     }
@@ -289,8 +269,8 @@ mod tests {
     fn given_cold_auto_78f_on_state_then_value_is_properly_computed() {
         assert_eq!(
             EliosState::new(
-                Some(EliosFanSpeed::Automatic),
-                EliosMode::Cold,
+                Some(FanSpeed::Automatic),
+                Mode::Cold,
                 Some(Temperature::Fahrenheit(78)),
                 true,
                 false,
@@ -305,8 +285,8 @@ mod tests {
     fn given_cold_auto_84f_on_state_then_value_is_properly_computed() {
         assert_eq!(
             EliosState::new(
-                Some(EliosFanSpeed::Automatic),
-                EliosMode::Cold,
+                Some(FanSpeed::Automatic),
+                Mode::Cold,
                 Some(Temperature::Fahrenheit(84)),
                 true,
                 false,
@@ -322,7 +302,7 @@ mod tests {
         assert_eq!(
             EliosState::new(
                 None,
-                EliosMode::Automatic,
+                Mode::Automatic,
                 Some(Temperature::Celcius(30)),
                 true,
                 false,
@@ -336,8 +316,8 @@ mod tests {
     #[test]
     fn when_auto_mode_then_cannot_select_fan_speed() {
         let state = EliosState::new(
-            Some(EliosFanSpeed::High),
-            EliosMode::Automatic,
+            Some(FanSpeed::High),
+            Mode::Automatic,
             Some(Temperature::Celcius(24)),
             true,
             false,
@@ -349,8 +329,8 @@ mod tests {
     #[test]
     fn when_fan_mode_then_cannot_select_temperature() {
         let state = EliosState::new(
-            Some(EliosFanSpeed::Low),
-            EliosMode::Fan,
+            Some(FanSpeed::Low),
+            Mode::Fan,
             Some(Temperature::Celcius(24)),
             true,
             true,
@@ -361,22 +341,15 @@ mod tests {
 
     #[test]
     fn when_dry_mode_then_sleep_is_unavailable() {
-        let state = EliosState::new(
-            None,
-            EliosMode::Dry,
-            Some(Temperature::Celcius(24)),
-            true,
-            true,
-        )
-        .unwrap();
+        let state =
+            EliosState::new(None, Mode::Dry, Some(Temperature::Celcius(24)), true, true).unwrap();
 
         assert_eq!(state.sleep, false);
     }
 
     #[test]
     fn when_fan_mode_then_sleep_is_unavailable() {
-        let state =
-            EliosState::new(Some(EliosFanSpeed::Low), EliosMode::Fan, None, true, true).unwrap();
+        let state = EliosState::new(Some(FanSpeed::Low), Mode::Fan, None, true, true).unwrap();
 
         assert_eq!(state.sleep, false);
     }
@@ -384,16 +357,16 @@ mod tests {
     #[test]
     fn given_out_of_range_temperature_then_temperature_is_clamped() {
         let lower_min_celcius = EliosState::new(
-            Some(EliosFanSpeed::Automatic),
-            EliosMode::Cold,
+            Some(FanSpeed::Automatic),
+            Mode::Cold,
             Some(Temperature::Celcius(MIN_CELCIUS - 1)),
             true,
             false,
         )
         .unwrap();
         let higher_max_celcius = EliosState::new(
-            Some(EliosFanSpeed::Automatic),
-            EliosMode::Cold,
+            Some(FanSpeed::Automatic),
+            Mode::Cold,
             Some(Temperature::Celcius(MAX_CELCIUS + 1)),
             true,
             false,
@@ -401,16 +374,16 @@ mod tests {
         .unwrap();
 
         let lower_min_fahrenheit = EliosState::new(
-            Some(EliosFanSpeed::Automatic),
-            EliosMode::Cold,
+            Some(FanSpeed::Automatic),
+            Mode::Cold,
             Some(Temperature::Fahrenheit(MIN_FAHRENHEIT - 1)),
             true,
             false,
         )
         .unwrap();
         let higher_max_fahrenheit = EliosState::new(
-            Some(EliosFanSpeed::Automatic),
-            EliosMode::Cold,
+            Some(FanSpeed::Automatic),
+            Mode::Cold,
             Some(Temperature::Fahrenheit(MAX_FAHRENHEIT + 1)),
             true,
             false,

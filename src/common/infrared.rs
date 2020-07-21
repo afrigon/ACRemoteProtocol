@@ -2,17 +2,17 @@ use bit_vec::BitVec;
 
 pub struct InfraredProtocol {
     /// The duration of the beginning pulse in microseconds
-    leading_pulse: u32,
+    pub leading_pulse: u32,
     /// The duration of the gap in microseconds after the leading pulse
-    leading_gap: u32,
+    pub leading_gap: u32,
     /// The duration of a pulse in microseconds when sending a logical 1
-    one_pulse: u32,
+    pub one_pulse: u32,
     /// The duration of the gap in microseconds when sending a logical 1
-    one_gap: u32,
+    pub one_gap: u32,
     /// The duration of a pulse in microseconds when sending a logical 0
-    zero_pulse: u32,
+    pub zero_pulse: u32,
     /// The duration of the gap in microseconds when sending a logical 0
-    zero_gap: u32,
+    pub zero_gap: u32,
 }
 
 impl InfraredProtocol {
