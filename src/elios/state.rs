@@ -118,7 +118,12 @@ impl EliosState {
     fn checksum(data: &[u8; 5]) -> u8 {
         let data: Vec<u8> = data.iter().map(bitreverse).collect();
 
-        let xor_nibble = (data[0] ^ data[1] ^ data[2] ^ 0b100) & 0xf;
+        let xor_nibble = (data[0]
+            ^ data[1]
+            ^ data[2]
+            ^ 0b100
+            ^ if data[1] >> 2 & 0b111 == 0 { 0b1000 } else { 0 })
+            & 0xf;
         let sum_nibble =
             ((data[0] >> 4) + (data[1] >> 4) + (data[2] >> 4) + (data[2] >> 3 & 1)) & 0xf;
 
@@ -309,6 +314,22 @@ mod tests {
             .unwrap()
             .as_value(),
             0b10100001_10100000_01110110_11111111_11111111_01010000
+        );
+    }
+
+    #[test]
+    fn given_auto_30c_on_state_then_value_is_properly_computed() {
+        assert_eq!(
+            EliosState::new(
+                None,
+                EliosMode::Automatic,
+                Some(Temperature::Celcius(30)),
+                true,
+                false,
+            )
+            .unwrap()
+            .as_value(),
+            0b10100001_10000010_01001101_11111111_11111111_01010001
         );
     }
 
