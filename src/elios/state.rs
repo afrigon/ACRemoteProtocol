@@ -11,12 +11,12 @@ const MAX_FAHRENHEIT: u8 = 86;
 const FAN_TEMPERATURE: u8 = 0b11110;
 
 pub const ELIOS_IR: InfraredProtocol = InfraredProtocol {
-    leading_pulse: 4500,
-    leading_gap: 4500,
-    one_pulse: 560,
-    one_gap: 1600,
-    zero_pulse: 560,
-    zero_gap: 560,
+    leading_pulse: 4350,
+    leading_gap: 4350,
+    one_pulse: 550,
+    one_gap: 1550,
+    zero_pulse: 550,
+    zero_gap: 550,
 };
 
 #[derive(Debug, Copy, Clone)]
