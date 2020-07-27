@@ -13,10 +13,10 @@ const FAN_TEMPERATURE: u8 = 0b11110;
 pub const ELIOS_IR: InfraredProtocol = InfraredProtocol {
     leading_pulse: 4500,
     leading_gap: 4500,
-    one_pulse: 500,
-    one_gap: 1500,
-    zero_pulse: 500,
-    zero_gap: 500,
+    one_pulse: 560,
+    one_gap: 1600,
+    zero_pulse: 560,
+    zero_gap: 560,
 };
 
 #[derive(Debug, Copy, Clone)]
